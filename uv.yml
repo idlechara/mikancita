@@ -1,0 +1,23 @@
+name: cat-sandbox-tracker
+version: 0.1.0
+description: A project to track which cat is using the sandbox and when.
+dependencies:
+  - opencv-python
+  - numpy
+  - argparse
+  - imutils
+  - requests
+  - pytest
+dev-dependencies:
+  - black
+  - flake8
+  - mypy
+  - pytest-cov
+  - pre-commit
+scripts:
+  start: python src/main.py
+  test: pytest tests
+  lint: flake8 src tests
+  format: black src tests
+  type-check: mypy src
+  pre-commit: pre-commit run --all-files

@@ -1,0 +1,27 @@
+{
+  "name": "Cat Sandbox Tracker",
+  "dockerFile": "Dockerfile",
+  "context": "..",
+  "settings": {
+    "python.pythonPath": "/usr/local/bin/python"
+  },
+  "runArgs": [
+    "--device=/dev/video0:/dev/video0"
+  ],
+  "extensions": [
+    "ms-python.python",
+    "ms-toolsai.jupyter",
+    "github.copilot",
+    "ms-vscode-remote.remote-containers",
+    "ms-vscode-remote.remote-ssh",
+    "ms-vscode-remote.remote-ssh-edit",
+    "ms-vscode-remote.remote-wsl",
+    "ms-toolsai.jupyter",
+    "ms-python.vscode-pylance",
+    "ms-python.tensorboard-preview",
+    "usernamehw.errorlens",
+    "ms-azuretools.vscode-docker"
+  ],
+  "postCreateCommand": "pip install -r requirements.txt",
+  "remoteUser": "vscode"
+}
