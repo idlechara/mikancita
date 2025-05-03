@@ -1,14 +1,15 @@
 [tool.poetry]
-name = "video-feed-project"
+name = "mikancita"
 version = "0.1.0"
-description = "A Python project to take video feed and display it in a window."
+description = "Intelligent cat monitoring system that detects and records cats using computer vision"
 authors = ["Alice"]
 
 [tool.poetry.dependencies]
 python = "^3.9"
 opencv-python = "^4.5.5"
-picamera2 = "^0.3.12"
 ultralytics = "^8.3.124"
+numpy = "^1.24.0"
+pyyaml = "^6.0"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

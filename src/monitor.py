@@ -43,13 +43,11 @@ class CatMonitor:
     
     def _setup_mask(self) -> None:
         """Load or create a detection mask."""
-        mask = None
-        
         # Create mask directory if needed
         mask_dir = os.path.join(os.path.dirname(Config.OUTPUT_DIR), "masks")
         os.makedirs(mask_dir, exist_ok=True)
         
-        # Default mask path if not specified
+        # Set default mask path if not specified
         if Config.MASK_PATH is None:
             Config.MASK_PATH = os.path.join(mask_dir, "detection_mask.png")
         
@@ -61,20 +59,14 @@ class CatMonitor:
                 self.detector.set_mask(mask)
                 return
         
-        # Create mask interactively if loading failed
+        # Create new mask if loading failed
         print("Creating new detection mask...")
-        # Get the frame size
         _, frame = self.cap.read()
         if frame is not None:
-            # Create mask using the current frame as reference
             mask = self.mask_manager.create_interactive_mask(frame)
-            
             if mask is not None:
-                # Save the mask
                 if self.mask_manager.save_mask(mask, Config.MASK_PATH):
                     print(f"Saved detection mask to {Config.MASK_PATH}")
-                
-                # Set the mask in the detector
                 self.detector.set_mask(mask)
             else:
                 print("Mask creation canceled, proceeding without a mask")
@@ -97,37 +89,56 @@ class CatMonitor:
     def _main_loop(self) -> None:
         """Main processing loop."""
         while True:
-            # Get frame
+            # Get and process frame
             success, frame = self.cap.read()
             if not success:
                 break
 
-            # Detect objects
+            # Detect cats and handle events
             results = self.detector.detect(frame)
-            
-            # Check for cat with confidence score
             cat_box, confidence = self.detector.get_cat_box_with_confidence(results)
-            
-            # Update cat tracking state
             events = self.tracker.update(cat_box is not None)
-            
-            # Handle tracking events
             self._handle_events(events, frame, cat_box, confidence)
             
-            # Display frame
+            # Display frame and handle user input
             self._show_frame(results, frame)
-            
-            # Check for key presses
-            key = cv2.waitKey(1)
-            if key == ord("q"):
-                # Exit if 'q' is pressed
+            if self._handle_key_press(frame):
                 break
-            elif key == ord("m"):
-                # Toggle mode if 'm' is pressed (only between recordings)
-                self._toggle_recorder_mode()
-            elif key == ord("k"):
-                # Toggle mask mode
-                self._toggle_mask_mode(frame)
+    
+    def _handle_key_press(self, frame: np.ndarray) -> bool:
+        """Handle key press events for controlling the application.
+        
+        Returns:
+            True if application should exit, False otherwise
+        """
+        key = cv2.waitKey(1)
+        if key == ord("q"):
+            # Exit if 'q' is pressed
+            return True
+        elif key == ord("m"):
+            # Toggle mode if 'm' is pressed (only between recordings)
+            self._toggle_recorder_mode()
+        elif key == ord("k"):
+            # Toggle mask mode
+            self._toggle_mask_mode(frame)
+        
+        return False
+    
+    def _toggle_recorder_mode(self) -> None:
+        """Toggle between video and photo recording modes."""
+        if self.recorder.is_recording():
+            print("Cannot change mode while recording is in progress")
+            return
+        
+        # Switch to opposite mode
+        new_mode = (
+            RecorderMode.PHOTOS if self.recorder.mode == RecorderMode.VIDEO else RecorderMode.VIDEO
+        )
+        
+        # Update recorder and config
+        self.recorder.set_mode(new_mode)
+        Config.DEFAULT_RECORDER_MODE = new_mode
+        Config.save_user_config()
     
     def _toggle_mask_mode(self, frame: np.ndarray) -> None:
         """Toggle mask creation mode."""
@@ -144,68 +155,69 @@ class CatMonitor:
         if Config.MASK_PATH is None:
             Config.MASK_PATH = os.path.join(mask_dir, "detection_mask.png")
 
-        # Check current mask state
+        # Toggle mask state
         if self.detector.mask is None:
-            # No mask currently active - display options
-            options_window = "Mask Options"
-            options_frame = np.zeros((300, 600, 3), dtype=np.uint8)
-            
-            # Add options text
-            font = cv2.FONT_HERSHEY_SIMPLEX
-            cv2.putText(options_frame, "Mask Options:", (20, 40), font, 0.8, (255, 255, 255), 2)
-            cv2.putText(options_frame, "c - Create new mask", (40, 100), font, 0.7, (255, 255, 255), 2)
-            
-            # Only show load option if a mask file exists
-            if os.path.exists(Config.MASK_PATH):
-                cv2.putText(options_frame, "l - Load saved mask", (40, 150), font, 0.7, (255, 255, 255), 2)
-                cv2.putText(options_frame, "r - Remove saved mask", (40, 200), font, 0.7, (255, 255, 255), 2)
-            
-            cv2.putText(options_frame, "q - Cancel", (40, 250), font, 0.7, (255, 255, 255), 2)
-            
-            # Show options window
-            cv2.imshow(options_window, options_frame)
-            
-            # Handle option selection
-            while True:
-                key = cv2.waitKey(0) & 0xFF
-                if key == ord('c'):
-                    # Create a new mask
-                    cv2.destroyWindow(options_window)
-                    self._create_new_mask(frame)
-                    break
-                elif key == ord('l') and os.path.exists(Config.MASK_PATH):
-                    # Load saved mask
-                    mask = self.mask_manager.load_mask(Config.MASK_PATH)
-                    if mask is not None:
-                        self.detector.set_mask(mask)
-                        print(f"Loaded detection mask from {Config.MASK_PATH}")
-                        # Save this setting to Config
-                        Config.USE_DETECTION_MASK = True
-                        Config.save_user_config()
-                    cv2.destroyWindow(options_window)
-                    break
-                elif key == ord('r') and os.path.exists(Config.MASK_PATH):
-                    # Remove saved mask
-                    try:
-                        os.remove(Config.MASK_PATH)
-                        print(f"Removed mask file: {Config.MASK_PATH}")
-                        # Clear config
-                        Config.USE_DETECTION_MASK = False
-                        Config.save_user_config()
-                    except Exception as e:
-                        print(f"Error removing mask file: {e}")
-                    cv2.destroyWindow(options_window)
-                    break
-                elif key == ord('q'):
-                    # Cancel
-                    cv2.destroyWindow(options_window)
-                    break
+            self._show_mask_options(Config.MASK_PATH, frame)
         else:
             # Mask is active, disable it
             self.detector.set_mask(None)
             print("Detection mask disabled")
-            # Save this setting to Config
             Config.USE_DETECTION_MASK = False
+            Config.save_user_config()
+    
+    def _show_mask_options(self, mask_path: str, frame: np.ndarray) -> None:
+        """Show mask options dialog and handle selection."""
+        options_window = "Mask Options"
+        options_frame = np.zeros((300, 600, 3), dtype=np.uint8)
+        
+        # Add options text
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        cv2.putText(options_frame, "Mask Options:", (20, 40), font, 0.8, (255, 255, 255), 2)
+        cv2.putText(options_frame, "c - Create new mask", (40, 100), font, 0.7, (255, 255, 255), 2)
+        
+        # Only show load option if a mask file exists
+        if os.path.exists(mask_path):
+            cv2.putText(options_frame, "l - Load saved mask", (40, 150), font, 0.7, (255, 255, 255), 2)
+            cv2.putText(options_frame, "r - Remove saved mask", (40, 200), font, 0.7, (255, 255, 255), 2)
+        
+        cv2.putText(options_frame, "q - Cancel", (40, 250), font, 0.7, (255, 255, 255), 2)
+        
+        # Show options window
+        cv2.imshow(options_window, options_frame)
+        
+        # Handle option selection
+        while True:
+            key = cv2.waitKey(0) & 0xFF
+            if key == ord('c'):
+                # Create a new mask
+                cv2.destroyWindow(options_window)
+                self._create_new_mask(frame)
+                break
+            elif key == ord('l') and os.path.exists(mask_path):
+                # Load saved mask
+                mask = self.mask_manager.load_mask(mask_path)
+                if mask is not None:
+                    self.detector.set_mask(mask)
+                    print(f"Loaded detection mask from {mask_path}")
+                    Config.USE_DETECTION_MASK = True
+                    Config.save_user_config()
+                cv2.destroyWindow(options_window)
+                break
+            elif key == ord('r') and os.path.exists(mask_path):
+                # Remove saved mask
+                try:
+                    os.remove(mask_path)
+                    print(f"Removed mask file: {mask_path}")
+                    Config.USE_DETECTION_MASK = False
+                    Config.save_user_config()
+                except Exception as e:
+                    print(f"Error removing mask file: {e}")
+                cv2.destroyWindow(options_window)
+                break
+            elif key == ord('q'):
+                # Cancel
+                cv2.destroyWindow(options_window)
+                break
     
     def _create_new_mask(self, frame: np.ndarray) -> None:
         """Create a new detection mask using the current frame as reference."""
@@ -235,59 +247,39 @@ class CatMonitor:
     
     def _show_frame(self, results: Any, frame: np.ndarray) -> None:
         """Display the frame with detection results."""
-        # Use the display frame from detector if mask is active, otherwise use results plot
+        # Get the appropriate display frame based on mask status
         if self.detector.mask is not None:
-            # Get the frame with properly faded non-masked areas
             display_frame = self.detector.get_display_frame()
-            
-            # Plot detection results on the display frame (not the original frame)
             annotated_frame = results[0].plot(img=display_frame)
         else:
-            # No mask, just use the normal results plotting
             annotated_frame = results[0].plot()
         
-        # Add mode indicator to the frame
+        # Add overlay text with status information
+        self._add_status_overlay(annotated_frame)
+        
+        cv2.imshow("Cat Detection", annotated_frame)
+    
+    def _add_status_overlay(self, frame: np.ndarray) -> None:
+        """Add status text overlay to the frame."""
+        # Add mode indicator
         mode_text = f"Mode: {'PHOTOS' if self.recorder.mode == RecorderMode.PHOTOS else 'VIDEO'}"
         cv2.putText(
-            annotated_frame,
-            mode_text,
-            (10, 30),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            1,
-            (0, 255, 0),
-            2
+            frame, mode_text, (10, 30),
+            cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2
         )
         
-        # Add mask status if applicable
-        if self.detector.mask is not None:
-            mask_text = "Mask: ON"
-            
-            # We no longer need to overlay the mask here since the display frame already has it
-        else:
-            mask_text = "Mask: OFF"
-        
+        # Add mask status
+        mask_text = "Mask: ON" if self.detector.mask is not None else "Mask: OFF"
         cv2.putText(
-            annotated_frame,
-            mask_text,
-            (10, 60),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            1,
-            (0, 255, 0),
-            2
+            frame, mask_text, (10, 60),
+            cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2
         )
         
         # Add key help
         cv2.putText(
-            annotated_frame,
-            "q: quit, m: change mode, k: edit mask",
-            (10, 90),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.7,
-            (0, 255, 0),
-            2
+            frame, "q: quit, m: change mode, k: edit mask", (10, 90),
+            cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2
         )
-        
-        cv2.imshow("Cat Detection", annotated_frame)
     
     def _setup_webcam(self) -> cv2.VideoCapture:
         """Initialize and configure the webcam."""
@@ -301,31 +293,22 @@ class CatMonitor:
         return cap
     
     def _handle_events(self, events: Dict[str, Any], frame: np.ndarray, cat_box: Optional[Tuple[int, int, int, int]], confidence: float = 0.0) -> None:
-        """Handle cat tracking events.
-        
-        Args:
-            events: Dictionary of tracking events (appeared, disappeared, etc.)
-            frame: Current video frame
-            cat_box: Bounding box of detected cat (x1, y1, x2, y2) or None
-            confidence: Detection confidence score (0.0-1.0)
-        """
+        """Handle cat tracking events."""
+        # Handle cat appearance
         if events["appeared"]:
-            # Cat just appeared
             print("Cat detected!")
             self.recorder.start()
         
+        # Add frame to recording if cat is visible
         if cat_box is not None and self.tracker.is_detected():
-            # Record frame with cat - use the original frame without mask overlay
-            # Pass the confidence score to the recorder
             self.recorder.add_frame(frame, cat_box, confidence)
         
+        # Handle cat disappearance
         if events["disappeared"]:
-            # Cat has been gone for the threshold time
             print(f"Cat was on camera for {events['duration']:.2f} seconds")
             
             # Set recorder end time to when cat first disappeared
-            away_since = self.tracker.get_away_since()
-            if away_since is not None:
+            if away_since := self.tracker.get_away_since():
                 self.recorder.set_end_time(away_since)
             
             # Stop recording

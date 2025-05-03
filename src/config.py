@@ -6,8 +6,8 @@ from enum import Enum
 
 class RecorderMode(Enum):
     """Recording modes for cat capture."""
-    VIDEO = "video"  # Record as video file
-    PHOTOS = "photos"  # Save individual photos
+    VIDEO = "video"
+    PHOTOS = "photos"
 
 
 class Config:
@@ -17,13 +17,13 @@ class Config:
     WEBCAM_HEIGHT = 720
     
     # Detection settings
-    CAT_MARGIN_PERCENT = 0.1  # 10% margin around cat bounding box
-    CAT_ABSENCE_THRESHOLD = 0.5  # Seconds before considering cat gone
+    CAT_MARGIN_PERCENT = 0.1
+    CAT_ABSENCE_THRESHOLD = 0.5
     
     # Mask settings
-    USE_DETECTION_MASK = False  # Enable/disable mask-based detection
-    MASK_PATH = None  # Path to mask file (None for interactive creation)
-    MASK_OPACITY = 0.5  # Opacity for displaying mask overlay
+    USE_DETECTION_MASK = False
+    MASK_PATH = None
+    MASK_OPACITY = 0.5
     
     # Output settings
     OUTPUT_DIR = "cat_captures"
@@ -31,10 +31,10 @@ class Config:
     VIDEO_CODEC = "XVID"
     DEFAULT_FPS = 15.0
     PHOTO_FORMAT = "jpg"
-    PHOTO_QUALITY = 95  # JPEG quality (0-100)
+    PHOTO_QUALITY = 95
     
     # Video source
-    VIDEO_SOURCE = 0  # Default webcam (0 for built-in, 1 for external)
+    VIDEO_SOURCE = 0
     
     # Model settings
     YOLO_MODEL_PATH = "yolo11n.pt"
@@ -72,7 +72,6 @@ class Config:
             with open(cls.CONFIG_FILE, 'r') as f:
                 config_data = json.load(f)
                 
-                # Apply loaded settings
                 if "USE_DETECTION_MASK" in config_data:
                     cls.USE_DETECTION_MASK = config_data["USE_DETECTION_MASK"]
                 

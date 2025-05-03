@@ -17,15 +17,7 @@ class CatTracker:
         }
     
     def update(self, cat_detected: bool) -> Dict[str, Any]:
-        """Update tracking state based on current detection.
-        
-        Returns a dict with events that occurred:
-        {
-            "appeared": bool,  # True if cat just appeared
-            "disappeared": bool,  # True if cat disappeared and exceeded threshold
-            "duration": float or None  # Duration cat was visible if disappeared
-        }
-        """
+        """Update tracking state based on current detection."""
         events = {
             "appeared": False,
             "disappeared": False,

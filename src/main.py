@@ -5,7 +5,7 @@ import argparse
 import os
 import sys
 
-# Add the parent directory to the path so we can import modules correctly
+# Add the parent directory to the path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from src.monitor import CatMonitor
@@ -41,11 +41,10 @@ def check_and_initialize_model():
     model_path = Config.YOLO_MODEL_PATH
     ncnn_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "yolo11n_ncnn_model")
     
-    # Check if the model exists
     if not os.path.exists(model_path) or not os.path.exists(ncnn_dir):
-        print(f"Model not found. Initializing model...")
+        print("Model not found. Initializing model...")
         export_model()
-        print(f"Model initialization complete.")
+        print("Model initialization complete.")
 
 
 def main():
