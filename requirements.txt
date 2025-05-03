@@ -1,8 +1,0 @@
-opencv-python
-numpy
-pillow
-argparse
-requests
-pytest
-uvicorn
-fastapi

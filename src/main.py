@@ -1,59 +1,31 @@
-import argparse
-from camera import Camera
-from evaluator import Evaluator
-from recorder import Recorder
-from notifier import Notifier
+import cv2
 
 def main():
-    parser = argparse.ArgumentParser(description="Cat Sandbox Tracker")
-    parser.add_argument('--record', action='store_true', help='Record video from camera')
-    parser.add_argument('--eval-image', type=str, help='Evaluate an image to determine which cat is using the sandbox')
-    parser.add_argument('--eval-video', type=str, help='Evaluate a video to determine when a cat used the sandbox')
-    parser.add_argument('--production', action='store_true', help='Run in production mode to monitor the sandbox in real-time')
-    parser.add_argument('--display-feed', action='store_true', help='Display the video feed during operation')
+    # Open the default camera
+    cap = cv2.VideoCapture(0)
 
-    args = parser.parse_args()
+    if not cap.isOpened():
+        print("Error: Could not open video feed.")
+        return
 
-    if args.record:
-        camera = Camera()
-        camera.start_capture()
-        recorder = Recorder(camera)
-        recorder.record("output.avi", display_feed=args.display_feed)
-        camera.stop_capture()
-    elif args.eval_image:
-        evaluator = Evaluator()
-        result = evaluator.evaluate_image(args.eval_image)
-        print(f"Evaluation result: {result}")
-    elif args.eval_video:
-        evaluator = Evaluator()
-        results = evaluator.evaluate_video(args.eval_video, display_feed=args.display_feed)
-        print(f"Evaluation results: {results}")
-    elif args.production:
-        camera = Camera()
-        camera.start_capture()
-        evaluator = Evaluator()
-        notifier = Notifier()
+    while True:
+        # Capture frame-by-frame
+        ret, frame = cap.read()
 
-        while True:
-            frame = camera.read_frame()
-            if frame is None:
-                break
+        if not ret:
+            print("Error: Could not read frame.")
+            break
 
-            # Placeholder for real-time evaluation logic
-            result = evaluator.evaluate_image(frame)  # Assuming evaluate_image can handle frames
-            if result:
-                notifier.notify(result, duration=5)  # Example duration
+        # Display the resulting frame
+        cv2.imshow('Video Feed', frame)
 
-            if args.display_feed:
-                cv2.imshow("Production Feed", frame)
-                if cv2.waitKey(1) & 0xFF == ord('q'):  # Press 'q' to quit
-                    break
+        # Break the loop on 'q' key press
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
 
-        if args.display_feed:
-            cv2.destroyAllWindows()
-        camera.stop_capture()
-    else:
-        parser.print_help()
+    # Release the capture and close windows
+    cap.release()
+    cv2.destroyAllWindows()
 
 if __name__ == "__main__":
     main()
