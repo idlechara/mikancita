@@ -47,3 +47,26 @@ htmlcov/
 
 # Windows
 Thumbs.db
+
+# Project specific
+# Cat capture outputs
+cat_captures/
+*.mp4
+*.avi
+*.jpg
+
+# Model files - uncomment if you don't want to track model files
+# *.pt
+# *.torchscript
+# yolo11n_ncnn_model/
+yolo11n_ncnn_model
+# Poetry
+poetry.lock
+
+# Logs
+*.log
+
+# Cache files
+.cache/
+
+yolo*
