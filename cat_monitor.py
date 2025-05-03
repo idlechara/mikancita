@@ -18,6 +18,16 @@ def parse_args():
         default="video",
         help="Recording mode: 'video' to save videos, 'photos' to save individual images"
     )
+    parser.add_argument(
+        "--mask",
+        action="store_true",
+        help="Enable detection mask for specifying regions of interest"
+    )
+    parser.add_argument(
+        "--mask-path",
+        type=str,
+        help="Path to a previously saved mask file (png format)"
+    )
     return parser.parse_args()
 
 
@@ -35,13 +45,23 @@ def check_and_initialize_model():
 
 def main():
     """Run the cat detection application."""
+    # Load user configuration
+    Config.load_user_config()
+    
     # Check and initialize the model if needed
     check_and_initialize_model()
     
     args = parse_args()
     
-    # Set recording mode based on command line argument
+    # Command line args override saved config
     mode = RecorderMode.VIDEO if args.mode == "video" else RecorderMode.PHOTOS
+    
+    # Set mask configuration
+    if args.mask:
+        Config.USE_DETECTION_MASK = True
+    if args.mask_path:
+        Config.MASK_PATH = os.path.abspath(args.mask_path)
+        Config.USE_DETECTION_MASK = True
     
     # Initialize and run the monitor
     monitor = CatMonitor(recorder_mode=mode)

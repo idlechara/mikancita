@@ -1,4 +1,6 @@
 """Configuration settings for the cat detection application."""
+import os
+import json
 from enum import Enum
 
 
@@ -18,6 +20,11 @@ class Config:
     CAT_MARGIN_PERCENT = 0.1  # 10% margin around cat bounding box
     CAT_ABSENCE_THRESHOLD = 0.5  # Seconds before considering cat gone
     
+    # Mask settings
+    USE_DETECTION_MASK = False  # Enable/disable mask-based detection
+    MASK_PATH = None  # Path to mask file (None for interactive creation)
+    MASK_OPACITY = 0.5  # Opacity for displaying mask overlay
+    
     # Output settings
     OUTPUT_DIR = "cat_captures"
     VIDEO_FORMAT = "avi"
@@ -27,10 +34,57 @@ class Config:
     PHOTO_QUALITY = 95  # JPEG quality (0-100)
     
     # Video source
-    VIDEO_SOURCE = 2  # Default webcam (0 for built-in, 1 for external)
+    VIDEO_SOURCE = 0  # Default webcam (0 for built-in, 1 for external)
     
     # Model settings
     YOLO_MODEL_PATH = "yolo11n.pt"
     
     # Recorder settings
-    DEFAULT_RECORDER_MODE = RecorderMode.PHOTOS  # Change to RecorderMode.PHOTOS to default to photos
+    DEFAULT_RECORDER_MODE = RecorderMode.PHOTOS
+    
+    # Config file path
+    CONFIG_FILE = os.path.join(os.path.dirname(os.path.dirname(__file__)), "user_config.json")
+    
+    @classmethod
+    def save_user_config(cls):
+        """Save user configuration settings to a file."""
+        config_data = {
+            "USE_DETECTION_MASK": cls.USE_DETECTION_MASK,
+            "MASK_PATH": cls.MASK_PATH,
+            "DEFAULT_RECORDER_MODE": cls.DEFAULT_RECORDER_MODE.value
+        }
+        
+        try:
+            with open(cls.CONFIG_FILE, 'w') as f:
+                json.dump(config_data, f, indent=4)
+                print(f"Configuration saved to {cls.CONFIG_FILE}")
+        except Exception as e:
+            print(f"Error saving configuration: {e}")
+    
+    @classmethod
+    def load_user_config(cls):
+        """Load user configuration settings from file."""
+        if not os.path.exists(cls.CONFIG_FILE):
+            print("No saved configuration found, using defaults")
+            return
+        
+        try:
+            with open(cls.CONFIG_FILE, 'r') as f:
+                config_data = json.load(f)
+                
+                # Apply loaded settings
+                if "USE_DETECTION_MASK" in config_data:
+                    cls.USE_DETECTION_MASK = config_data["USE_DETECTION_MASK"]
+                
+                if "MASK_PATH" in config_data and config_data["MASK_PATH"]:
+                    cls.MASK_PATH = config_data["MASK_PATH"]
+                
+                if "DEFAULT_RECORDER_MODE" in config_data:
+                    mode_str = config_data["DEFAULT_RECORDER_MODE"]
+                    cls.DEFAULT_RECORDER_MODE = (
+                        RecorderMode.VIDEO if mode_str == "video" else RecorderMode.PHOTOS
+                    )
+                
+                print(f"Configuration loaded from {cls.CONFIG_FILE}")
+        except Exception as e:
+            print(f"Error loading configuration: {e}")

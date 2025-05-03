@@ -5,7 +5,8 @@ import time
 import cv2
 import numpy as np
 import shutil
-from typing import Tuple, List, Optional, Union
+import yaml
+from typing import Tuple, List, Optional, Union, Dict, Any
 from datetime import datetime
 from config import Config, RecorderMode
 
@@ -33,7 +34,11 @@ class CatRecorder:
             "session_path": None,  # Video file path or photo directory path
             "start_time": None,
             "end_time": None,
-            "frame_count": 0  # Counter for photo filenames
+            "frame_count": 0,  # Counter for photo filenames
+            "confidences": [],  # Store confidence scores for each frame
+            "frame_sizes": [],  # Store size of each frame in bytes
+            "timestamp": None,  # Timestamp for this session
+            "metadata": {}  # Store metadata for the recording
         }
         
         # Create output directory if it doesn't exist
@@ -43,6 +48,7 @@ class CatRecorder:
         """Start a new recording session."""
         # Generate timestamp for this session
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        self.state["timestamp"] = timestamp
         
         if self.mode == RecorderMode.VIDEO:
             # Create video file path
@@ -62,9 +68,18 @@ class CatRecorder:
         self.state["start_time"] = time.time()
         self.state["end_time"] = None
         self.state["frame_count"] = 0
+        self.state["confidences"] = []  # Reset confidences
+        self.state["frame_sizes"] = []  # Reset frame sizes
+        self.state["metadata"] = {}
     
-    def add_frame(self, frame: np.ndarray, cat_box: Tuple[int, int, int, int]) -> None:
-        """Add a frame with cat to the current recording."""
+    def add_frame(self, frame: np.ndarray, cat_box: Tuple[int, int, int, int], confidence: float = 0.0) -> None:
+        """Add a frame with cat to the current recording.
+        
+        Args:
+            frame: The video frame containing a cat
+            cat_box: The bounding box of the cat (x1, y1, x2, y2)
+            confidence: Detection confidence score (0.0-1.0)
+        """
         if not self.state["is_recording"]:
             return
             
@@ -81,9 +96,13 @@ class CatRecorder:
         if self.mode == RecorderMode.VIDEO:
             # Store the frame in memory for later video creation
             self.state["frames"].append(cropped_frame)
+            # Store the confidence score
+            self.state["confidences"].append(confidence)
+            # Store the frame size in bytes
+            self.state["frame_sizes"].append(cropped_frame.nbytes)
         else:
             # Save the photo immediately
-            self._save_photo(cropped_frame)
+            self._save_photo(cropped_frame, confidence)
             
     def stop(self) -> None:
         """Stop recording and finalize output."""
@@ -110,6 +129,9 @@ class CatRecorder:
                 
                 # Create the video
                 self._create_video(fps, real_duration)
+                
+                # Generate metadata and save YAML file
+                self._save_video_metadata(frame_count, fps, real_duration)
             else:
                 print("No frames collected, video not created")
         else:
@@ -117,6 +139,9 @@ class CatRecorder:
             photo_count = self.state["frame_count"]
             if photo_count > 0:
                 print(f"Saved {photo_count} photos in: {self.state['session_path']}")
+                
+                # Generate metadata and save YAML file
+                self._save_photos_metadata(photo_count, real_duration)
             else:
                 print("No photos captured")
                 # Remove empty directory
@@ -191,7 +216,7 @@ class CatRecorder:
         print(f"Finished saving video to {self.state['session_path']}")
         print(f"Video duration: {len(self.state['frames'])/fps:.2f} seconds (should match {real_duration:.2f} seconds)")
     
-    def _save_photo(self, frame: np.ndarray) -> None:
+    def _save_photo(self, frame: np.ndarray, confidence: float = 0.0) -> None:
         """Save a single photo to the photos directory."""
         # Create a sequential filename
         filename = f"cat_{self.state['frame_count']:04d}.{Config.PHOTO_FORMAT}"
@@ -205,6 +230,10 @@ class CatRecorder:
         )
         
         if success:
+            # Store the confidence score
+            self.state["confidences"].append(confidence)
+            # Store the frame size in bytes
+            self.state["frame_sizes"].append(frame.nbytes)
             self.state["frame_count"] += 1
     
     def _reset_state(self) -> None:
@@ -216,3 +245,101 @@ class CatRecorder:
         self.state["start_time"] = None
         self.state["end_time"] = None
         self.state["frame_count"] = 0
+        self.state["confidences"] = []
+        self.state["frame_sizes"] = []
+    
+    def _get_frame_statistics(self) -> Dict[str, Any]:
+        """Calculate statistics about recorded frames.
+        
+        Returns:
+            Dictionary with frame statistics (middle, largest, highest confidence)
+        """
+        if not self.state["confidences"]:
+            return {}
+            
+        # Find middle frame index
+        middle_idx = len(self.state["confidences"]) // 2
+        
+        # Find largest frame (by size in bytes)
+        if self.state["frame_sizes"]:
+            largest_idx = self.state["frame_sizes"].index(max(self.state["frame_sizes"]))
+        else:
+            largest_idx = 0
+            
+        # Find frame with highest confidence
+        highest_conf_idx = self.state["confidences"].index(max(self.state["confidences"]))
+        
+        # Return as dictionary
+        return {
+            "middle_frame_index": middle_idx,
+            "middle_frame_confidence": self.state["confidences"][middle_idx],
+            "largest_frame_index": largest_idx,
+            "largest_frame_confidence": self.state["confidences"][largest_idx],
+            "highest_confidence_frame_index": highest_conf_idx,
+            "highest_confidence_value": self.state["confidences"][highest_conf_idx],
+        }
+        
+    def _save_video_metadata(self, frame_count: int, fps: float, real_duration: float) -> None:
+        """Save metadata for the recorded video to a YAML file."""
+        # Calculate frame statistics
+        frame_stats = self._get_frame_statistics()
+        
+        # Format metadata in ISO format for better readability
+        start_dt = datetime.fromtimestamp(self.state["start_time"])
+        end_dt = datetime.fromtimestamp(self.state["end_time"])
+        
+        metadata = {
+            "date_time": start_dt.isoformat(),
+            "end_time": end_dt.isoformat(),
+            "duration": real_duration,
+            "frame_count": frame_count,
+            "fps": fps,
+            "timestamp": self.state["timestamp"],
+        }
+        
+        # Add frame statistics
+        metadata.update(frame_stats)
+        
+        # Add confidence for each frame
+        metadata["frame_confidences"] = self.state["confidences"]
+        
+        # Define metadata file path
+        metadata_file = f"{self.state['session_path']}.yaml"
+        
+        # Write metadata to YAML file
+        with open(metadata_file, "w") as yaml_file:
+            yaml.dump(metadata, yaml_file, default_flow_style=False, sort_keys=False)
+        
+        print(f"Metadata saved to: {metadata_file}")
+    
+    def _save_photos_metadata(self, photo_count: int, real_duration: float) -> None:
+        """Save metadata for the captured photos to a YAML file."""
+        # Calculate frame statistics
+        frame_stats = self._get_frame_statistics()
+        
+        # Format metadata in ISO format for better readability
+        start_dt = datetime.fromtimestamp(self.state["start_time"])
+        end_dt = datetime.fromtimestamp(self.state["end_time"])
+        
+        metadata = {
+            "date_time": start_dt.isoformat(),
+            "end_time": end_dt.isoformat(),
+            "duration": real_duration,
+            "photo_count": photo_count,
+            "timestamp": self.state["timestamp"],
+        }
+        
+        # Add frame statistics
+        metadata.update(frame_stats)
+        
+        # Add confidence for each frame
+        metadata["frame_confidences"] = self.state["confidences"]
+        
+        # Define metadata file path
+        metadata_file = f"{self.state['session_path']}/metadata.yaml"
+        
+        # Write metadata to YAML file
+        with open(metadata_file, "w") as yaml_file:
+            yaml.dump(metadata, yaml_file, default_flow_style=False, sort_keys=False)
+        
+        print(f"Metadata saved to: {metadata_file}")

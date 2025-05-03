@@ -1,0 +1,5 @@
+{
+    "USE_DETECTION_MASK": true,
+    "MASK_PATH": "masks/detection_mask.png",
+    "DEFAULT_RECORDER_MODE": "photos"
+}
