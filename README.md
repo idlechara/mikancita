@@ -83,11 +83,28 @@ Or use the provided shell script:
 ./run_cat_monitor.sh
 ```
 
-### Command Line Options
+### Video Source Options
+
+Mikancita can use either a webcam or an RTMP stream as its video source:
+
+```bash
+# Use a specific webcam (if you have multiple cameras)
+python src/main.py --webcam 1
+
+# Use an RTMP stream
+python src.main.py --rtmp rtmp://your-rtmp-server.com/live/stream
+```
+
+### Recording Mode Options
 
 ```bash
 python src/main.py --mode photos  # Record individual photos (default)
 python src/main.py --mode video   # Record videos
+```
+
+### Other Options
+
+```bash
 python src/main.py --mask         # Enable detection mask
 python src/main.py --mask-path masks/custom_mask.png  # Use a specific mask file
 ```

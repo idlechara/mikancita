@@ -36,8 +36,6 @@ htmlcov/
 .env
 .env.*
 
-# VS Code
-.vscode/
 
 # macOS
 .DS_Store

@@ -10,6 +10,12 @@ class RecorderMode(Enum):
     PHOTOS = "photos"
 
 
+class VideoSourceType(Enum):
+    """Video source types for capturing."""
+    WEBCAM = "webcam"
+    RTMP = "rtmp"
+
+
 class Config:
     """Configuration settings for the application."""
     # Camera settings
@@ -33,8 +39,11 @@ class Config:
     PHOTO_FORMAT = "jpg"
     PHOTO_QUALITY = 95
     
-    # Video source
-    VIDEO_SOURCE = 0
+    # Video source settings
+    VIDEO_SOURCE_TYPE = VideoSourceType.WEBCAM
+    VIDEO_SOURCE = 0  # Webcam index or RTMP URL
+    RTMP_RECONNECT_ATTEMPTS = 3  # Number of times to attempt reconnection
+    RTMP_RECONNECT_DELAY = 5     # Seconds to wait between reconnection attempts
     
     # Model settings
     YOLO_MODEL_PATH = "yolo11n.pt"
@@ -51,7 +60,9 @@ class Config:
         config_data = {
             "USE_DETECTION_MASK": cls.USE_DETECTION_MASK,
             "MASK_PATH": cls.MASK_PATH,
-            "DEFAULT_RECORDER_MODE": cls.DEFAULT_RECORDER_MODE.value
+            "DEFAULT_RECORDER_MODE": cls.DEFAULT_RECORDER_MODE.value,
+            "VIDEO_SOURCE_TYPE": cls.VIDEO_SOURCE_TYPE.value,
+            "VIDEO_SOURCE": cls.VIDEO_SOURCE
         }
         
         try:
@@ -83,6 +94,15 @@ class Config:
                     cls.DEFAULT_RECORDER_MODE = (
                         RecorderMode.VIDEO if mode_str == "video" else RecorderMode.PHOTOS
                     )
+                
+                if "VIDEO_SOURCE_TYPE" in config_data:
+                    source_type = config_data["VIDEO_SOURCE_TYPE"]
+                    cls.VIDEO_SOURCE_TYPE = (
+                        VideoSourceType.RTMP if source_type == "rtmp" else VideoSourceType.WEBCAM
+                    )
+                
+                if "VIDEO_SOURCE" in config_data:
+                    cls.VIDEO_SOURCE = config_data["VIDEO_SOURCE"]
                 
                 print(f"Configuration loaded from {cls.CONFIG_FILE}")
         except Exception as e:

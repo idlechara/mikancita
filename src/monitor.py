@@ -2,10 +2,11 @@
 
 import cv2
 import os
+import time
 from typing import Dict, Any, Optional, Tuple
 import numpy as np
 
-from config import Config, RecorderMode
+from config import Config, RecorderMode, VideoSourceType
 from detector import CatDetector
 from recorder import CatRecorder
 from tracker import CatTracker
@@ -21,7 +22,7 @@ class CatMonitor:
         Args:
             recorder_mode: Mode for recording (VIDEO or PHOTOS)
         """
-        self.cap = self._setup_webcam()
+        self.cap = self._setup_video_source()
         self.detector = CatDetector(Config.YOLO_MODEL_PATH)
         self.recorder = CatRecorder(
             Config.OUTPUT_DIR, 
@@ -88,11 +89,35 @@ class CatMonitor:
     
     def _main_loop(self) -> None:
         """Main processing loop."""
+        reconnect_attempts = 0
+        
         while True:
             # Get and process frame
             success, frame = self.cap.read()
+            
+            # Handle potential stream disconnection
             if not success:
-                break
+                # For RTMP, try to reconnect
+                if Config.VIDEO_SOURCE_TYPE == VideoSourceType.RTMP and reconnect_attempts < Config.RTMP_RECONNECT_ATTEMPTS:
+                    reconnect_attempts += 1
+                    print(f"Stream disconnected, attempting to reconnect ({reconnect_attempts}/{Config.RTMP_RECONNECT_ATTEMPTS})...")
+                    
+                    # Release current capture and try to reconnect
+                    self.cap.release()
+                    time.sleep(Config.RTMP_RECONNECT_DELAY)
+                    self.cap = cv2.VideoCapture(Config.VIDEO_SOURCE)
+                    
+                    if self.cap.isOpened():
+                        print("Successfully reconnected to stream")
+                        reconnect_attempts = 0
+                        continue
+                else:
+                    # Either webcam disconnected or too many reconnection attempts
+                    print("Video source disconnected. Exiting...")
+                    break
+            else:
+                # Reset reconnection attempts on successful frame read
+                reconnect_attempts = 0
 
             # Detect cats and handle events
             results = self.detector.detect(frame)
@@ -275,20 +300,57 @@ class CatMonitor:
             cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2
         )
         
+        # Add source type
+        source_type = "RTMP" if Config.VIDEO_SOURCE_TYPE == VideoSourceType.RTMP else "Webcam"
+        cv2.putText(
+            frame, f"Source: {source_type}", (10, 90),
+            cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2
+        )
+        
         # Add key help
         cv2.putText(
-            frame, "q: quit, m: change mode, k: edit mask", (10, 90),
+            frame, "q: quit, m: change mode, k: edit mask", (10, 120),
             cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2
         )
     
-    def _setup_webcam(self) -> cv2.VideoCapture:
-        """Initialize and configure the webcam."""
-        cap = cv2.VideoCapture(Config.VIDEO_SOURCE)
-        cap.set(cv2.CAP_PROP_FRAME_WIDTH, Config.WEBCAM_WIDTH)
-        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, Config.WEBCAM_HEIGHT)
+    def _setup_video_source(self) -> cv2.VideoCapture:
+        """Initialize and configure the video source (webcam or RTMP)."""
+        source = Config.VIDEO_SOURCE
+        source_type = Config.VIDEO_SOURCE_TYPE
         
-        # Set FPS to help maintain consistent frame rate
-        cap.set(cv2.CAP_PROP_FPS, Config.DEFAULT_FPS)
+        # Print information about the video source
+        if source_type == VideoSourceType.WEBCAM:
+            print(f"Using webcam index: {source}")
+        else:
+            print(f"Connecting to RTMP stream: {source}")
+        
+        # Initialize video capture
+        cap = cv2.VideoCapture(source)
+        
+        # Configure properties based on source type
+        if source_type == VideoSourceType.WEBCAM:
+            # For webcams, set resolution and FPS
+            cap.set(cv2.CAP_PROP_FRAME_WIDTH, Config.WEBCAM_WIDTH)
+            cap.set(cv2.CAP_PROP_FRAME_HEIGHT, Config.WEBCAM_HEIGHT)
+            cap.set(cv2.CAP_PROP_FPS, Config.DEFAULT_FPS)
+        else:
+            # For RTMP, handle potential connection issues
+            attempts = 0
+            while not cap.isOpened() and attempts < Config.RTMP_RECONNECT_ATTEMPTS:
+                print(f"Failed to connect to RTMP stream, retrying ({attempts+1}/{Config.RTMP_RECONNECT_ATTEMPTS})...")
+                cap = cv2.VideoCapture(source)
+                attempts += 1
+                time.sleep(Config.RTMP_RECONNECT_DELAY)
+            
+            if not cap.isOpened():
+                print("WARNING: Failed to connect to RTMP stream after multiple attempts.")
+                print("Falling back to webcam...")
+                Config.VIDEO_SOURCE_TYPE = VideoSourceType.WEBCAM
+                Config.VIDEO_SOURCE = 0
+                Config.save_user_config()
+                return self._setup_video_source()
+            
+            print("Successfully connected to RTMP stream")
         
         return cap
     

@@ -1,0 +1,68 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Mikancita: Default Webcam",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/cat_monitor.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": []
+        },
+        {
+            "name": "Mikancita: Video Mode",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/cat_monitor.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": ["--mode", "video"]
+        },
+        {
+            "name": "Mikancita: Photo Mode",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/cat_monitor.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": ["--mode", "photos"]
+        },
+        {
+            "name": "Mikancita: RTMP Stream",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/cat_monitor.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": ["--rtmp", "rtmp://example.com/live/stream"]
+        },
+        {
+            "name": "Mikancita: Webcam with Mask",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/cat_monitor.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": ["--mask"]
+        },
+        {
+            "name": "Mikancita: RTMP with Video Mode",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/cat_monitor.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": ["--rtmp", "rtmp://example.com/live/stream", "--mode", "video"]
+        },
+        {
+            "name": "Mikancita: Secondary Webcam",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/cat_monitor.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": ["--webcam", "1"]
+        }
+    ]
+}

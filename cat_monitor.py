@@ -4,7 +4,7 @@
 import argparse
 import os
 from src.monitor import CatMonitor
-from src.config import RecorderMode, Config
+from src.config import RecorderMode, Config, VideoSourceType
 from src.init import export_model
 
 
@@ -27,6 +27,16 @@ def parse_args():
         "--mask-path",
         type=str,
         help="Path to a previously saved mask file (png format)"
+    )
+    parser.add_argument(
+        "--rtmp",
+        type=str,
+        help="RTMP URL to use as video source instead of webcam"
+    )
+    parser.add_argument(
+        "--webcam",
+        type=int,
+        help="Webcam index to use (default: 0)"
     )
     return parser.parse_args()
 
@@ -62,6 +72,19 @@ def main():
     if args.mask_path:
         Config.MASK_PATH = os.path.abspath(args.mask_path)
         Config.USE_DETECTION_MASK = True
+    
+    # Set video source configuration
+    if args.rtmp:
+        Config.VIDEO_SOURCE_TYPE = VideoSourceType.RTMP
+        Config.VIDEO_SOURCE = args.rtmp
+        print(f"Using RTMP stream: {args.rtmp}")
+    elif args.webcam is not None:
+        Config.VIDEO_SOURCE_TYPE = VideoSourceType.WEBCAM
+        Config.VIDEO_SOURCE = args.webcam
+        print(f"Using webcam index: {args.webcam}")
+    
+    # Save the configuration
+    Config.save_user_config()
     
     # Initialize and run the monitor
     monitor = CatMonitor(recorder_mode=mode)
